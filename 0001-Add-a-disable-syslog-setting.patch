@@ -1,0 +1,96 @@
+diff --git a/pdns/common_startup.cc b/pdns/common_startup.cc
+index 45ab21d..b9c2165 100644
+--- a/pdns/common_startup.cc
++++ b/pdns/common_startup.cc
+@@ -78,6 +78,7 @@ void declareArguments()
+   ::arg().set("version-string","PowerDNS version in packets - full, anonymous, powerdns or custom")="full"; 
+   ::arg().set("control-console","Debugging switch - don't use")="no"; // but I know you will!
+   ::arg().set("loglevel","Amount of logging. Higher is more. Do not set below 3")="4";
++  ::arg().set("disable-syslog","Disable logging to syslog, useful when running inside a supervisor that logs stdout")="no";
+   ::arg().set("default-soa-name","name to insert in the SOA record if none set in the backend")="a.misconfigured.powerdns.server";
+   ::arg().set("default-soa-mail","mail address to insert in the SOA record if none set in the backend")="";
+   ::arg().set("distributor-threads","Default number of Distributor (backend) threads to start")="3";
+diff --git a/pdns/logger.cc b/pdns/logger.cc
+index 5e6fd2b..6357bff 100644
+--- a/pdns/logger.cc
++++ b/pdns/logger.cc
+@@ -50,7 +50,7 @@ void Logger::log(const string &msg, Urgency u)
+     clog<<buffer;
+     clog <<msg <<endl;
+   }
+-  if( u <= d_loglevel ) {
++  if( u <= d_loglevel && !d_disableSyslog ) {
+ #ifndef RECURSOR
+     S.ringAccount("logmessages",msg);
+ #endif
+diff --git a/pdns/logger.hh b/pdns/logger.hh
+index 2c3b449..c0cda0b 100644
+--- a/pdns/logger.hh
++++ b/pdns/logger.hh
+@@ -58,6 +58,10 @@ public:
+   void toConsole(Urgency);
+   void setLoglevel( Urgency );
+ 
++  void disableSyslog(bool d) {
++    d_disableSyslog = d;
++  }
++
+   //! Log to a file.
+   void toFile( const string & filename );
+   
+@@ -88,6 +92,7 @@ private:
+   int flags;
+   int d_facility;
+   bool opened;
++  bool d_disableSyslog;
+   Urgency d_loglevel;
+   Urgency consoleUrgency;
+   pthread_mutex_t lock;
+diff --git a/pdns/pdns.conf-dist b/pdns/pdns.conf-dist
+index 8ba6ce1..b9c0bd2 100644
+--- a/pdns/pdns.conf-dist
++++ b/pdns/pdns.conf-dist
+@@ -135,6 +135,11 @@
+ # disable-axfr-rectify=no
+ 
+ #################################
++# disable-syslog	Disable logging to syslog, useful when running inside a supervisor that logs stdout
++#
++# disable-syslog=no
++
++#################################
+ # disable-tcp	Do not listen to TCP queries
+ #
+ # disable-tcp=no
+diff --git a/pdns/pdns_recursor.cc b/pdns/pdns_recursor.cc
+index 3c4efdf..79e5e5a 100644
+--- a/pdns/pdns_recursor.cc
++++ b/pdns/pdns_recursor.cc
+@@ -1749,6 +1749,7 @@ int serviceMain(int argc, char*argv[])
+   L.setName(s_programname);
+ 
+   L.setLoglevel((Logger::Urgency)(6)); // info and up
++  L.disableSyslog(::arg().mustDo("disable-syslog"));
+ 
+   if(!::arg()["logging-facility"].empty()) {
+     int val=logFacilityToLOG(::arg().asNum("logging-facility") );
+@@ -2086,6 +2087,7 @@ int main(int argc, char **argv)
+     ::arg().set("trace","if we should output heaps of logging. set to 'fail' to only log failing domains")="off";
+     ::arg().set("daemon","Operate as a daemon")="yes";
+     ::arg().set("loglevel","Amount of logging. Higher is more. Do not set below 3")="4";
++    ::arg().set("disable-syslog","Disable logging to syslog, useful when running inside a supervisor that logs stdout")="no";
+     ::arg().set("log-common-errors","If we should log rather common errors")="yes";
+     ::arg().set("chroot","switch to chroot jail")="";
+     ::arg().set("setgid","If set, change group id to this gid for more security")="";
+diff --git a/pdns/receiver.cc b/pdns/receiver.cc
+index a2f5591..22257b9 100644
+--- a/pdns/receiver.cc
++++ b/pdns/receiver.cc
+@@ -450,6 +450,7 @@ int main(int argc, char **argv)
+     }
+ 
+     L.setLoglevel((Logger::Urgency)(::arg().asNum("loglevel")));
++    L.disableSyslog(::arg().mustDo("disable-syslog"));
+     L.toConsole((Logger::Urgency)(::arg().asNum("loglevel")));  
+ 
+     if(::arg().mustDo("help") || ::arg().mustDo("config")) {
