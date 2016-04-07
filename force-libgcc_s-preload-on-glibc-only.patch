@@ -1,0 +1,14 @@
+diff --git a/pdns/common_startup.cc b/pdns/common_startup.cc
+index 45ab21d..f32b4b1 100644
+--- a/pdns/common_startup.cc
++++ b/pdns/common_startup.cc
+@@ -439,7 +439,9 @@ void mainthread()
+    catch(...) {}
+ 
+    if(!::arg()["chroot"].empty()) {  
++#ifdef __GLIBC__
+      triggerLoadOfLibraries();
++#endif
+      if(::arg().mustDo("master") || ::arg().mustDo("slave"))
+         gethostbyname("a.root-servers.net"); // this forces all lookup libraries to be loaded
+      Utility::dropGroupPrivs(newuid, newgid);

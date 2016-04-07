@@ -9,11 +9,13 @@ RUN apk update \
 
 ADD pdns.conf /etc/pdns.conf
 ADD 0001-Add-a-disable-syslog-setting.patch /tmp/0001-Add-a-disable-syslog-setting.patch
+ADD force-libgcc_s-preload-on-glibc-only.patch /tmp/force-libgcc_s-preload-on-glibc-only.patch
 
 RUN curl -O -L "https://downloads.powerdns.com/releases/pdns-${PDNS_VERSION}.tar.bz2" \
     && tar xjf "pdns-${PDNS_VERSION}.tar.bz2" \
     && cd "pdns-${PDNS_VERSION}" \
     && patch -p1 < /tmp/0001-Add-a-disable-syslog-setting.patch \
+    && patch -p1 < /tmp/force-libgcc_s-preload-on-glibc-only.patch \
     && ./configure --prefix=/usr \
             --sysconfdir=/etc \
             --mandir=/usr/share/man \
